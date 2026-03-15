@@ -5,10 +5,10 @@ from PIL import Image
 from transformers import EfficientNetImageProcessor, EfficientNetForImageClassification
 
 # Determining the file URL
-url = 'some url'
+url = '../data/bald-eagle_ML652837824.jpg'
 
 # Opening the image using PIL
-img = Image.open(urllib.request.urlretrieve(url)[0])
+img = Image.open(url)
 
 # Loading the model and preprocessor from HuggingFace
 preprocessor = EfficientNetImageProcessor.from_pretrained("dennisjooo/Birds-Classifier-EfficientNetB2")
