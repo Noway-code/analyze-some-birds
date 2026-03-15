@@ -1,27 +1,12 @@
-# Importing the libraries needed
-import torch
-import urllib.request
+from transformers import pipeline
 from PIL import Image
-from transformers import EfficientNetImageProcessor, EfficientNetForImageClassification
+import glob
 
-# Determining the file URL
-url = '../data/bald-eagle_ML652837824.jpg'
-
-# Opening the image using PIL
-img = Image.open(url)
-
-# Loading the model and preprocessor from HuggingFace
-preprocessor = EfficientNetImageProcessor.from_pretrained("dennisjooo/Birds-Classifier-EfficientNetB2")
-model = EfficientNetForImageClassification.from_pretrained("dennisjooo/Birds-Classifier-EfficientNetB2")
-
-# Preprocessing the input
-inputs = preprocessor(img, return_tensors="pt")
-
-# Running the inference
-with torch.no_grad():
-    logits = model(**inputs).logits
-
-# Getting the predicted label
-predicted_label = logits.argmax(-1).item()
-print(model.config.id2label[predicted_label])
-
+classifier = pipeline(
+    "image-classification",
+    model="chriamue/bird-species-classifier"
+)
+directory_path = 'data/*.jpg'
+for image in glob.glob(directory_path):
+    with Image.open(image) as img:
+        print(classifier(img))
