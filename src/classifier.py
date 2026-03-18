@@ -8,9 +8,21 @@ import math
 import subprocess
 import numpy as np
 import time
+import json
 
-width = 1280
-height = 720
+
+def get_resolution(video_path):
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height",
+         "-of", "json", video_path],
+        capture_output=True, text=True
+    )
+    data = json.loads(result.stdout)
+    w = data["streams"][0]["width"]
+    h = data["streams"][0]["height"]
+    return w, h
+
 def subprocess_frames(video_path):
     process = subprocess.Popen(
     [
@@ -24,9 +36,12 @@ def subprocess_frames(video_path):
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE
     )
-    
+    width, height = get_resolution(video_path) 
     frame_size = width * height * 3
     i = 0
+    success=0
+    total=0
+    print(f"running {video_path}")
     while True:
         raw = process.stdout.read(frame_size)
         if len(raw) != frame_size:
@@ -36,34 +51,27 @@ def subprocess_frames(video_path):
         pil_image = Image.fromarray(frame)
         result = classifier(pil_image)
         
-        print(result[0]['score'])
-        output_path = os.path.join("validate", f"{time.time()}_{i}.jpg")
-        pil_image.save(output_path)
+        candidate = result[0]
+        label = candidate['label']
+        score = candidate['score']
+        
+        if label != "NORTHERN CARDINAL" or score < .50:
+            output_path = os.path.join("validate", f"{label}-{score}__{time.time()}.jpg")
+            pil_image.save(output_path)
+        else:
+            success+=1
+        total+=1
 
-def sample_frames(idx,video_path, output_folder="out"):
-    """
-    Extracts frames at specific timestamps (in seconds) using ffmpeg-python.
-    """
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder, exist_ok=True)
-
-    metadata = ffmpeg.probe(video_path) 
-    duration_seconds = math.floor(float(metadata["format"]["duration"]))
-    print(f"Going for {duration_seconds}")
-    for i in range(duration_seconds):
-        output_path = os.path.join(output_folder, f"vid_{idx}_frame_at_{i}s_{i}.jpg")
-        try:
-            ffmpeg.input(video_path, ss=i).output(output_path, vframes=1).run(overwrite_output=True, quiet=True)
-            print(f"Saved frame at {i}s to {output_path}")
-        except Exception as e:
-            print("welp", e)
+    print(f"{success}, {total}, accuracy: {success/total}")
+    process.stdout.close()
+    process.stderr.close()
+    process.wait()
 
 classifier = pipeline(
     "image-classification",
     model="chriamue/bird-species-classifier"
 )
 directory_path = 'data/*.mp4'
-idx = 0
 for vid in glob.glob(directory_path):
     subprocess_frames(vid)
     
