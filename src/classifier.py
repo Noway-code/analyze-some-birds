@@ -9,19 +9,15 @@ import subprocess
 import numpy as np
 import time
 import json
+import cv2
 
 
 def get_resolution(video_path):
-    result = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=width,height",
-         "-of", "json", video_path],
-        capture_output=True, text=True
-    )
-    data = json.loads(result.stdout)
-    w = data["streams"][0]["width"]
-    h = data["streams"][0]["height"]
-    return w, h
+    cap = cv2.VideoCapture(video_path)
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    return w, h, fps
 
 def subprocess_frames(video_path):
     process = subprocess.Popen(
@@ -36,7 +32,7 @@ def subprocess_frames(video_path):
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE
     )
-    width, height = get_resolution(video_path) 
+    width, height, _= get_resolution(video_path) 
     frame_size = width * height * 3
     i = 0
     success=0
@@ -55,7 +51,7 @@ def subprocess_frames(video_path):
         label = candidate['label']
         score = candidate['score']
         
-        if label != "NORTHERN CARDINAL" or score < .50:
+        if score < .50:
             output_path = os.path.join("validate", f"{label}-{score}__{time.time()}.jpg")
             pil_image.save(output_path)
         else:
@@ -67,10 +63,7 @@ def subprocess_frames(video_path):
     process.stderr.close()
     process.wait()
 
-classifier = pipeline(
-    "image-classification",
-    model="chriamue/bird-species-classifier"
-)
+classifier = pipeline("image-classification", model="dennisjooo/Birds-Classifier-EfficientNetB2")
 directory_path = 'data/*.mp4'
 for vid in glob.glob(directory_path):
     subprocess_frames(vid)
