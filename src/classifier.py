@@ -81,42 +81,15 @@ def yolo(video_path):
         conf=0.30
     )
 
-    for frame in results:
-        frame_img = frame.orig_img 
-        boxes = frame.boxes
-
-        # Check if anything was identified before tensors ops
-        if boxes is None:
+    for result in results:
+        if result.boxes is None:
             continue
-        
-        # Convert box tensors from hgface to actual numpy coords
-        boxes = frame.boxes.xyxy.cpu().numpy()
-        ids = frame.boxes.id
 
-        if ids is not None:
-            ids = ids.numpy()
-
-        # There can be multiple boxes i.e birds
-        for i, box in enumerate(boxes):
-            x1, y1, x2, y2 = map(int, box)
-
-            track_id = int(ids[i]) 
-
-            cv2.rectangle(frame_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(
-                frame_img,
-                f"bird {track_id}",
-                (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (0, 255, 0),
-                2
-            )
-        writer.write(frame_img)
+        annotated = result.plot()
+        writer.write(annotated)
 
     cap.release()
     writer.release()
-
 
 for vid in glob.glob(directory_path):
     yolo(vid)
