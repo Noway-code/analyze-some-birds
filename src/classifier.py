@@ -12,49 +12,59 @@ import json
 import cv2
 from ultralytics import YOLO
 import pprint
-directory_path = 'data/*.mp4'
-output_path = 'validate'
-model = YOLO("yolov8n.pt") 
+from fastapi import UploadFile
 
 
-def get_resolution(cap):
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    return w, h, fps
+class Classifier:
+    def __init__(self):
+        print("classifier initialized")
+        self.output_path = 'validate'
+        self.model = YOLO("yolov8n.pt") 
 
-def yolo(video_path):
-    cap = cv2.VideoCapture(video_path)
-    out_path = os.path.join(output_path, os.path.basename(video_path))
-    w,h,fps = get_resolution(cap)
-    writer = cv2.VideoWriter(
-        out_path,
-        cv2.VideoWriter_fourcc(*"mp4v"),
-        fps,
-        (w, h)
-    )
+    def run_video(self,vid:str):
+            self.yolo(vid)
+    def run_directory(self, directory_path: str):
+        for vid in glob.glob(os.path.join(directory_path, "*.mp4")):
+            self.yolo(vid)
 
-    results = model.track(
-        source=video_path,
-        stream=True,
-        persist=True,
-        classes=[14],  # COCO class: bird
-        conf=0.30
-    )
+    def get_resolution(self,cap):
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        return w, h, fps
 
-    for result in results:
-        if result.boxes is None:
-            continue
+    def yolo(self, video_path:str):
+        cap = cv2.VideoCapture(video_path)
 
-        annotated = result.plot()
-        writer.write(annotated)
+        out_path = os.path.join(self.output_path, os.path.basename(video_path))
 
-    cap.release()
-    writer.release()
+        w,h,fps = self.get_resolution(cap)
+        writer = cv2.VideoWriter(
+            out_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            fps,
+            (w, h)
+        )
 
-for vid in glob.glob(directory_path):
-    yolo(vid)
-    
+        results = self.model.track(
+            source=video_path,
+            stream=True,
+            persist=True,
+            classes=[14],  # COCO class: bird
+            conf=0.30
+        )
+
+        for result in results:
+            if result.boxes is None:
+                continue
+
+            annotated = result.plot()
+            writer.write(annotated)
+
+        cap.release()
+        writer.release()
+
+        
 
 
 

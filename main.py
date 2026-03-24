@@ -1,18 +1,57 @@
 from fastapi import FastAPI, File, UploadFile
-app = FastAPI()
+from src.classifier import Classifier
+import shutil
+import os
+from fastapi import FastAPI, Request, Depends
+from fastapi.templating import Jinja2Templates
+from datetime import datetime, timezone
+import time
 
+app = FastAPI(title="Bird-Analysis", version="1.0.0")
+templates = Jinja2Templates(directory="templates")
+clf = Classifier()
+
+UPLOAD_DIR="stored_video"
+
+START_TIME = time.time()
+
+def get_uptime():
+    return round(time.time() - START_TIME, 2)
+
+def base_metadata():
+    return {
+        "service": app.title,
+        "version": app.version,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "uptime_seconds": get_uptime(),
+    }
 
 @app.get("/")
-def read_root():
-    return {"Hello": "World"}
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}
+@app.get("/health", tags=["health"])
+async def health():
+    """
+    Lightweight liveness probe.
+    Should be fast and not depend on external systems.
+    """
+    return {
+        "status": "ok",
+        **base_metadata()
+    }
 
 # Work past memory limit for images, vids, etc.
 @app.post("/uploadfile/")
 async def create_upload_file(file: UploadFile):
     print(file.filename, file.content_type, file.file)
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    clf.yolo(file_path)
+
     return {"filename": file.filename}
+
+    
