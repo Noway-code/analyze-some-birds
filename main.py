@@ -1,15 +1,16 @@
 from fastapi import FastAPI, File, UploadFile
-from src.classifier import Classifier
+from analyze.classifier import Classifier
 import shutil
 import os
 from fastapi import FastAPI, Request, Depends
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone
 import time
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Bird-Analysis", version="1.0.0")
-templates = Jinja2Templates(directory="templates")
 clf = Classifier()
+app.mount("/videos", StaticFiles(directory="videos"), name="videos")
 
 UPLOAD_DIR="stored_video"
 
@@ -27,8 +28,8 @@ def base_metadata():
     }
 
 @app.get("/")
-def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+def home():
+    return {"message": "Hello from FastAPI"}
 
 @app.get("/health", tags=["health"])
 async def health():
@@ -54,4 +55,12 @@ async def create_upload_file(file: UploadFile):
 
     return {"filename": file.filename}
 
-    
+@app.get("/api/videos")
+def list_videos():
+    return [
+        {
+            "id": "Haymore",
+            "url": "videos/Haymore.mp4",
+            "timestamp": "2026-03-24T10:00:00"
+        }
+    ]    

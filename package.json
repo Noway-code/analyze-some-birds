@@ -1,0 +1,22 @@
+{
+  "name": "bird-analysis",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "cd frontend & vite",
+    "build": "cd frontend & tsc && vite build",
+    "preview": "cd frontend & vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Noway-code/analyze-some-birds.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Noway-code/analyze-some-birds/issues"
+  },
+  "homepage": "https://github.com/Noway-code/analyze-some-birds#readme"
+}
