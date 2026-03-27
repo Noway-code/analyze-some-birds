@@ -12,7 +12,7 @@ app = FastAPI(title="Bird-Analysis", version="1.0.0")
 clf = Classifier()
 app.mount("/videos", StaticFiles(directory="videos"), name="videos")
 
-UPLOAD_DIR="stored_video"
+UPLOAD_DIR="videos"
 
 START_TIME = time.time()
 
@@ -57,10 +57,12 @@ async def create_upload_file(file: UploadFile):
 
 @app.get("/api/videos")
 def list_videos():
+    files = os.listdir(UPLOAD_DIR)
     return [
         {
-            "id": "Haymore",
-            "url": "videos/Haymore.mp4",
-            "timestamp": "2026-03-24T10:00:00"
+            "id": f,
+            "url": f"/videos/{f}",
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
-    ]    
+        for f in files if f.endswith(".mp4")
+    ]  

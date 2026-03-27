@@ -78,12 +78,10 @@ async function loadVideos() {
     
     videos.forEach(v => {
       const video = document.createElement("video");
-      // video.src = v.url;
-      // video.controls = true;
-      // video.width = 300;
-      // container.appendChild(video);
-        let current = document.querySelector("#texty").innerHTML
-        document.querySelector("#texty").innerHTML = current + v.url
+      video.src = v.url;
+      video.controls = true;
+      video.width = 300;
+      container.appendChild(video);
     });
   } catch (err) {
     console.error("Failed to load videos", err);
