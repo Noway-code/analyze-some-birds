@@ -4,6 +4,8 @@ import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import { setupCounter } from './counter.ts'
 
+
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <section id="center">
   <div class="hero">
@@ -54,26 +56,36 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 </section>
 
 <div class="ticks"></div>
-<div id="gallery">
-</div>
+<button id="load-button" type="button">
+Click for stuff
+    </button>
+<textarea id="texty">
+Sup
+</textarea>
+<div id="gallery">This is the start of something wonderful </div>
 <section id="spacer"></section>
 `
 
 setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+document.querySelector('#load-button')?.addEventListener('click', loadVideos)
 
 async function loadVideos() {
-  const res = await fetch("/api/videos");
-  const videos = await res.json();
+  try {
+    const res = await fetch("/api/videos");
+    const videos = await res.json();
 
-  const container = document.querySelector("#gallery");
-
-  videos.forEach(v => {
-    const video = document.createElement("video");
-    video.src = v.url;
-    video.controls = true;
-    video.width = 300;
-    container.appendChild(video);
-  });
+    const container = document.querySelector("#gallery")!;
+    
+    videos.forEach(v => {
+      const video = document.createElement("video");
+      // video.src = v.url;
+      // video.controls = true;
+      // video.width = 300;
+      // container.appendChild(video);
+        let current = document.querySelector("#texty").innerHTML
+        document.querySelector("#texty").innerHTML = current + v.url
+    });
+  } catch (err) {
+    console.error("Failed to load videos", err);
+  }
 }
-
-loadVideos();
