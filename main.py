@@ -10,10 +10,13 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Bird-Analysis", version="1.0.0")
 clf = Classifier()
-app.mount("/videos", StaticFiles(directory="videos"), name="videos")
-app.mount("/validate", StaticFiles(directory="validate"), name="validate")
 
-UPLOAD_DIR = "validate"
+# only mount videos accesible to frontend
+app.mount("/videos", StaticFiles(directory="videos"), name="videos")
+
+# Upload is for viewable while validate is for debugging with opencv boxes
+UPLOAD_DIR = "videos"
+VALIDATE_DIR = "validate"
 
 START_TIME = time.time()
 
@@ -45,16 +48,25 @@ async def health():
     return {"status": "ok", **base_metadata()}
 
 
-# Work past memory limit for images, vids, etc.
+# Work past memory limit for images, vids, etc. use /temp for working then erase, validate_video will store boxes /validate
 @app.post("/validatefile/")
 async def create_validate_file(file: UploadFile):
+    TEMP_DIR = "./temp/"
     print(file.filename, file.content_type, file.file)
-    file_path = os.path.join(VALIDATE_DIR, file.filename)
+    file_path = os.path.join(TEMP_DIR, file.filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     clf.validate_video(file_path)
+
+    print("validation complete, deleting temp file")
+
+    try:
+        os.remove(file_path)
+    except Exception as e:
+        print(f"Failed to delete file: {str(e)}")
+        print(f"Additional Details: {repr(e)}")
 
     return {"filename": file.filename}
 
@@ -65,19 +77,29 @@ async def create_validate_file(file: UploadFile):
 @app.post("/uploadfile/")
 async def create_upload_file(file: UploadFile):
     print(f"received file {file}, {file.content_type}, {file.file}")
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    TEMP_DIR = "./temp/"
+    file_path = os.path.join(TEMP_DIR, file.filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    clf.validate_video(file_path)
+    is_bird = clf.video_decision(file_path)
+    final_path = ""
+    if is_bird:
+        final_path = os.path.join(UPLOAD_DIR, "bird", file.filename)
+        print("bird located")
+    else:
+        final_path = os.path.join(UPLOAD_DIR, "other", file.filename)
+        print("no bird located")
 
-    return {"filename": file.filename}
+    os.rename(file_path, final_path)
+    return f"New Location: {final_path}"
 
 
 @app.get("/api/videos")
 def list_videos():
-    files = os.listdir(UPLOAD_DIR)
+    # TODO: Update this to $UPLOAD_DIR once they are available
+    files = os.listdir("./data")
     return [
         {
             "id": f,

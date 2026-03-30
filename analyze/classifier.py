@@ -16,17 +16,19 @@ from fastapi import UploadFile
 
 
 class Classifier:
-    def __init__(self):
+
+    def __init__(self, confidence=0.40, hit_threshold=100):
         print("classifier initialized")
-        self.output_path = "validate"
         self.model = YOLO("yolov8n.pt")
+        self.confidence = confidence
+        self.hit_threshold = hit_threshold
 
     def run_video(self, vid: str):
-        self.yolo(vid)
+        self.validate_video(vid)
 
     def run_directory(self, directory_path: str):
         for vid in glob.glob(os.path.join(directory_path, "*.mp4")):
-            self.yolo(vid)
+            self.validate_video(vid)
 
     def get_resolution(self, cap):
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -36,18 +38,19 @@ class Classifier:
 
     def validate_video(self, video_path: str):
         cap = cv2.VideoCapture(video_path)
+        output_path = "validate"
 
-        out_path = os.path.join(self.output_path, os.path.basename(video_path))
+        out_path = os.path.join(output_path, os.path.basename(video_path))
 
         w, h, fps = self.get_resolution(cap)
-        writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"MP4V"), fps, (w, h))
+        writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
         results = self.model.track(
             source=video_path,
             stream=True,
             persist=True,
             classes=[14],  # COCO class: bird
-            conf=0.30,
+            conf=self.confidence,
         )
 
         for result in results:
@@ -60,5 +63,26 @@ class Classifier:
         cap.release()
         writer.release()
 
-    def yolo(self, video_path: str):
-        cap
+    def video_decision(self, video_path: str):
+        threshold = self.hit_threshold
+        results = self.model.track(
+            source=video_path,
+            stream=True,
+            persist=False,
+            classes=[14],  # COCO class: bird
+            conf=self.confidence,
+        )
+        hits = 0
+        frame = 0
+        for result in results:
+            frame += 1
+            frameCheck = f"Checking frame {frame}"
+            if result.boxes is not None and len(result.boxes) > 0:
+                hits += 1
+                print(frameCheck + " Hit!")
+                if hits >= threshold:
+                    return True
+            else:
+                print(frameCheck)
+
+        return False
