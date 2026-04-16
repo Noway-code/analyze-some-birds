@@ -17,7 +17,7 @@ from fastapi import UploadFile
 
 class Classifier:
 
-    def __init__(self, confidence=0.40, hit_threshold=100):
+    def __init__(self, confidence=0.40, hit_threshold=20):
         print("classifier initialized")
         self.model = YOLO("yolov8n.pt")
         self.confidence = confidence
@@ -76,13 +76,12 @@ class Classifier:
         frame = 0
         for result in results:
             frame += 1
-            frameCheck = f"Checking frame {frame}"
             if result.boxes is not None and len(result.boxes) > 0:
                 hits += 1
-                print(frameCheck + " Hit!")
+                print(" Hit!")
                 if hits >= threshold:
                     return True
             else:
-                print(frameCheck)
+                print(f"Currently at {hits}/{frame}")
 
         return False

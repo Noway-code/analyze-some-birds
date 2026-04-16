@@ -2,7 +2,7 @@ from fastapi import FastAPI, File, UploadFile
 from analyze.classifier import Classifier
 import shutil
 import os
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, Response, status
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone
 import time
@@ -74,15 +74,17 @@ async def create_validate_file(file: UploadFile):
 # First check if we're fairly confident theres a bird in the video
 # If bird, then we'll go ahead and store this for viewing purposes (/videos/bird)
 # else it goes to (/videos/other)
-@app.post("/uploadfile/")
-async def create_upload_file(file: UploadFile):
+@app.post("/uploadfile/", status_code=200)
+async def create_upload_file(file: UploadFile, response: Response):
     print(f"received file {file}, {file.content_type}, {file.file}")
     TEMP_DIR = "./temp/"
     file_path = os.path.join(TEMP_DIR, file.filename)
-
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    if not os.path.exists(file_path):
+        response.status_code = status.HTTP_204_NO_CONTENT
+        return response
     is_bird = clf.video_decision(file_path)
     final_path = ""
     if is_bird:
