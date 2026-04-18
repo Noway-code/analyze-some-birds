@@ -8,6 +8,8 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone
 import time
 from fastapi.staticfiles import StaticFiles
+import logging
+import uvicorn
 
 app = FastAPI(title="Bird-Analysis", version="1.0.0")
 clf = Classifier()
@@ -20,6 +22,12 @@ UPLOAD_DIR = "videos"
 VALIDATE_DIR = "validate"
 
 START_TIME = time.time()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 def get_uptime():
@@ -43,7 +51,10 @@ def video_validation(file_path):
             .run(capture_stdout=True, capture_stderr=True)
         )
         return True
-    except ffmpeg.Error:
+    except ffmpeg.Error as e:
+        logger.warning(
+            "Video validation failed", extra={"file": file_path, "error": str(e)}
+        )
         return False
 
 
@@ -65,7 +76,7 @@ async def health():
 @app.post("/validatefile/")
 async def create_validate_file(file: UploadFile):
     TEMP_DIR = "./temp/"
-    print(file.filename, file.content_type, file.file)
+    logger.info(file.filename, file.content_type, file.file)
     file_path = os.path.join(TEMP_DIR, file.filename)
 
     with open(file_path, "wb") as buffer:
@@ -73,13 +84,13 @@ async def create_validate_file(file: UploadFile):
 
     clf.validate_video(file_path)
 
-    print("validation complete, deleting temp file")
+    logger.info("validation complete, deleting temp file")
 
     try:
         os.remove(file_path)
     except Exception as e:
-        print(f"Failed to delete file: {str(e)}")
-        print(f"Additional Details: {repr(e)}")
+        logger.error(f"Failed to delete file: {str(e)}")
+        logger.error(f"Additional Details: {repr(e)}")
 
     return {"filename": file.filename}
 
@@ -89,7 +100,7 @@ async def create_validate_file(file: UploadFile):
 # else it goes to (/videos/other)
 @app.post("/uploadfile/", status_code=200)
 async def create_upload_file(file: UploadFile):
-    print(f"received file {file}, {file.content_type}, {file.file}")
+    logger.info(f"received file {file}, {file.content_type}, {file.file}")
     TEMP_DIR = "./temp/"
     file_path = os.path.join(TEMP_DIR, file.filename)
 
@@ -97,27 +108,38 @@ async def create_upload_file(file: UploadFile):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
     except Exception as e:
+        logger.exception("Failed to save file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
     if not os.path.exists(file_path):
+        logger.exception("File was not saved correctly")
         raise HTTPException(status_code=400, detail="File was not saved correctly")
 
     is_valid = video_validation(file_path)
     if not is_valid:
         os.remove(file_path)
+        logger.exception("Uploaded video is corrupted")
         raise HTTPException(status_code=409, detail="Uploaded video is corrupted")
 
-    is_bird = clf.video_decision(file_path)
+    try:
+        is_bird = clf.video_decision(file_path)
+    except Exception as e:
+        logger.exception("Failed to execute classification, {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to execute classification, {str(e)}"
+        )
+
     final_path = ""
 
     try:
         if is_bird:
             final_path = os.path.join(UPLOAD_DIR, "bird", file.filename)
-            print("bird located")
+            logger.info("bird located")
         else:
             final_path = os.path.join(UPLOAD_DIR, "other", file.filename)
-            print("no bird located")
+            logger.info("no bird located")
     except Exception as e:
+        logger.exception("Detected {is_bird} but join directories failed: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Detected {is_bird} but join directories failed: {str(e)}",
@@ -127,8 +149,8 @@ async def create_upload_file(file: UploadFile):
         os.rename(file_path, final_path)
     except Exception as e:
         os.remove(file_path)
+        logger.exception("Failed to move file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to move file: {str(e)}")
-
     return {"message": "Success", "path": final_path, "bird": is_bird}
 
 
@@ -147,3 +169,7 @@ def list_videos():
         for f in files
         if f.endswith(".mp4")
     ]
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

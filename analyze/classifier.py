@@ -1,4 +1,5 @@
 from transformers import pipeline
+from fastapi import HTTPException
 from PIL import Image
 import glob
 import ffmpeg
@@ -65,13 +66,21 @@ class Classifier:
 
     def video_decision(self, video_path: str):
         threshold = self.hit_threshold
-        results = self.model.track(
-            source=video_path,
-            stream=True,
-            persist=False,
-            classes=[14],  # COCO class: bird
-            conf=self.confidence,
-        )
+        try:
+            raise Exception("just testing failure")
+            results = self.model.track(
+                source=video_path,
+                stream=True,
+                persist=False,
+                classes=[14],  # COCO class: bird
+                conf=self.confidence,
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to track with YOLO: {str(e)}",
+            )
+
         hits = 0
         frame = 0
         for result in results:
