@@ -1,7 +1,8 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from analyze.classifier import Classifier
 import shutil
 import os
+import ffmpeg
 from fastapi import FastAPI, Request, Depends, Response, status
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone
@@ -32,6 +33,18 @@ def base_metadata():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime_seconds": get_uptime(),
     }
+
+
+def video_validation(file_path):
+    try:
+        (
+            ffmpeg.input(file_path)
+            .output("null", f="null")
+            .run(capture_stdout=True, capture_stderr=True)
+        )
+        return True
+    except ffmpeg.Error:
+        return False
 
 
 @app.get("/")
@@ -75,29 +88,52 @@ async def create_validate_file(file: UploadFile):
 # If bird, then we'll go ahead and store this for viewing purposes (/videos/bird)
 # else it goes to (/videos/other)
 @app.post("/uploadfile/", status_code=200)
-async def create_upload_file(file: UploadFile, response: Response):
+async def create_upload_file(file: UploadFile):
     print(f"received file {file}, {file.content_type}, {file.file}")
     TEMP_DIR = "./temp/"
     file_path = os.path.join(TEMP_DIR, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
     if not os.path.exists(file_path):
-        response.status_code = status.HTTP_204_NO_CONTENT
-        return response
+        raise HTTPException(status_code=400, detail="File was not saved correctly")
+
+    is_valid = video_validation(file_path)
+    if not is_valid:
+        os.remove(file_path)
+        raise HTTPException(status_code=409, detail="Uploaded video is corrupted")
+
     is_bird = clf.video_decision(file_path)
     final_path = ""
-    if is_bird:
-        final_path = os.path.join(UPLOAD_DIR, "bird", file.filename)
-        print("bird located")
-    else:
-        final_path = os.path.join(UPLOAD_DIR, "other", file.filename)
-        print("no bird located")
 
-    os.rename(file_path, final_path)
-    return f"New Location: {final_path}"
+    try:
+        if is_bird:
+            final_path = os.path.join(UPLOAD_DIR, "bird", file.filename)
+            print("bird located")
+        else:
+            final_path = os.path.join(UPLOAD_DIR, "other", file.filename)
+            print("no bird located")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Detected {is_bird} but join directories failed: {str(e)}",
+        )
+
+    try:
+        os.rename(file_path, final_path)
+    except Exception as e:
+        os.remove(file_path)
+        raise HTTPException(status_code=500, detail=f"Failed to move file: {str(e)}")
+
+    return {"message": "Success", "path": final_path, "bird": is_bird}
 
 
+# ==============================
+# Website Apis
 @app.get("/api/videos")
 def list_videos():
     # TODO: Update this to $UPLOAD_DIR once they are available
