@@ -1,0 +1,96 @@
+<div class="max-w-3xl mx-auto" id="carousel">
+  <div class="relative">
+    <video
+      id="video-player"
+      class="w-full rounded-xl shadow"
+      controls
+      preload="metadata"
+    ></video>
+
+    <button
+      id="prev"
+      class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white px-3 py-1 rounded"
+    >
+      ←
+    </button>
+
+    <button
+      id="next"
+      class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white px-3 py-1 rounded"
+    >
+      →
+    </button>
+  </div>
+
+  <div id="thumbnails" class="flex gap-2 mt-4 overflow-x-auto"></div>
+</div>
+
+<script>
+  const root = document.getElementById("carousel");
+  const videoEl = root.querySelector("#video-player");
+  const thumbsEl = root.querySelector("#thumbnails");
+  const prevBtn = root.querySelector("#prev");
+  const nextBtn = root.querySelector("#next");
+
+  let videos = [];
+  let index = 0;
+
+  function render() {
+    if (!videos.length) return;
+
+    const current = videos[index];
+    videoEl.src = current.url;
+
+    thumbsEl.innerHTML = videos
+      .map((v, i) => {
+        const active = i === index ? "ring-2 ring-blue-500" : "";
+        if (v.thumbnail) {
+            console.log("Thumbnail")
+          return `
+            <button data-i="${i}" class="border rounded overflow-hidden ${active}">
+              <img src="${v.thumbnail}" class="w-24 h-16 object-cover" />
+            </button>
+          `;
+        }
+        return `
+          <button data-i="${i}" class="border rounded w-24 h-16 flex items-center justify-center text-xs ${active}">
+            ${v.title || "Video"}
+          </button>
+        `;
+      })
+      .join("");
+  }
+
+  function next() {
+    index = (index + 1) % videos.length;
+    render();
+  }
+
+  function prev() {
+    index = (index - 1 + videos.length) % videos.length;
+    render();
+  }
+
+  async function init() {
+    try {
+      const res = await fetch("/api/videos");
+      videos = await res.json();
+        console.log(videos)
+      render();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  thumbsEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    index = Number(btn.dataset.i);
+    render();
+  });
+
+  nextBtn.addEventListener("click", next);
+  prevBtn.addEventListener("click", prev);
+
+  init();
+</script>

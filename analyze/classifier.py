@@ -67,7 +67,6 @@ class Classifier:
     def video_decision(self, video_path: str):
         threshold = self.hit_threshold
         try:
-            raise Exception("just testing failure")
             results = self.model.track(
                 source=video_path,
                 stream=True,

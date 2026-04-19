@@ -1,11 +1,20 @@
 ---
 import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
-
+import VideoCarousel from "../components/VideoCarousel.astro";
+import "../styles/global.css";
 // Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
 // Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
 <Layout>
-	<Welcome />
+    <body class="bg-gray-50 text-gray-900">
+    <main class="p-6">
+      <h1 class="text-3xl font-bold text-center mb-8">
+        Video Carousel
+      </h1>
+
+      <VideoCarousel />
+    </main>
+  </body>
 </Layout>

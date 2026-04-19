@@ -10,6 +10,9 @@ import time
 from fastapi.staticfiles import StaticFiles
 import logging
 import uvicorn
+import psutil
+import platform
+import subprocess
 
 app = FastAPI(title="Bird-Analysis", version="1.0.0")
 clf = Classifier()
@@ -159,11 +162,11 @@ async def create_upload_file(file: UploadFile):
 @app.get("/api/videos")
 def list_videos():
     # TODO: Update this to $UPLOAD_DIR once they are available
-    files = os.listdir("./data")
+    files = os.listdir("./videos/bird")
     return [
         {
             "id": f,
-            "url": f"/videos/{f}",
+            "url": f"/videos/bird/{f}",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         for f in files
