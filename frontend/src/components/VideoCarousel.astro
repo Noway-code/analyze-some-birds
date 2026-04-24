@@ -16,16 +16,17 @@
 
     <button
       id="next"
-      class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white px-3 py-1 rounded"
+      class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white px-4 py-1 rounded"
     >
       →
     </button>
   </div>
 
-  <div id="thumbnails" class="flex gap-2 mt-4 overflow-x-auto"></div>
+  <div id="thumbnails" class="flex gap-2 my-2 py-4 overflow-x-auto"></div>
 </div>
 
 <script>
+
   const root = document.getElementById("carousel");
   const videoEl = root.querySelector("#video-player");
   const thumbsEl = root.querySelector("#thumbnails");
@@ -35,26 +36,34 @@
   let videos = [];
   let index = 0;
 
+  const HOURS = 3;
+  const HOUR_MS = 60 * 60 * 1000;
+
+  const timeRecencyCheck = (a, b) => {
+      const diffMs = Math.abs(new Date(a).getTime() - new Date(b).getTime());
+      return diffMs < HOURS * HOUR_MS;
+    };
+
   function render() {
     if (!videos.length) return;
 
     const current = videos[index];
     videoEl.src = current.url;
+    const dateNow = Date()
 
     thumbsEl.innerHTML = videos
       .map((v, i) => {
         const active = i === index ? "ring-2 ring-blue-500" : "";
-        if (v.thumbnail) {
-            console.log("Thumbnail")
-          return `
-            <button data-i="${i}" class="border rounded overflow-hidden ${active}">
-              <img src="${v.thumbnail}" class="w-24 h-16 object-cover" />
-            </button>
-          `;
-        }
+        const timestampDate = new Date(v.timestamp)
+        const videoTime = `${timestampDate.getHours()}:${timestampDate.getMinutes()}`
+
+      if (timeRecencyCheck(dateNow,timestampDate))
+          return `<button data-i="${i}" class="comic-button">
+                  Swag
+          </button>`;
         return `
           <button data-i="${i}" class="border rounded w-24 h-16 flex items-center justify-center text-xs ${active}">
-            ${v.title || "Video"}
+            ${videoTime || "Video"}
           </button>
         `;
       })
@@ -81,6 +90,7 @@
       console.error(e);
     }
   }
+
 
   thumbsEl.addEventListener("click", (e) => {
     const btn = e.target.closest("button");

@@ -13,6 +13,9 @@ import uvicorn
 import psutil
 import platform
 import subprocess
+from pydantic import BaseModel
+from datetime import datetime
+import json
 
 app = FastAPI(title="Bird-Analysis", version="1.0.0")
 clf = Classifier()
@@ -31,6 +34,29 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+DB_FILE = "videos.json"
+
+
+def load_videos():
+    if not os.path.exists(DB_FILE):
+        return []
+    with open(DB_FILE) as f:
+        return json.load(f)
+
+
+def save_video(video):
+    videos = load_videos()
+    videos.append(video)
+    with open(DB_FILE, "w") as f:
+        json.dump(videos, f)
+
+
+class Video(BaseModel):
+    id: str
+    url: str
+    created_at: datetime
+    is_bird: bool
 
 
 def get_uptime():
@@ -138,9 +164,28 @@ async def create_upload_file(file: UploadFile):
         if is_bird:
             final_path = os.path.join(UPLOAD_DIR, "bird", file.filename)
             logger.info("bird located")
+            video_data = {
+                "id": file.filename,
+                "url": f"/videos/bird/{file.filename}",
+                "created_at": datetime.now(timezone.utc)
+                .isoformat(timespec="milliseconds")
+                .replace("+00:00", "Z"),
+                "is_bird": True,
+            }
+            save_video(video_data)
         else:
             final_path = os.path.join(UPLOAD_DIR, "other", file.filename)
             logger.info("no bird located")
+            # We dont need to make other vids viewable yet
+            # video_data = {
+            #     "id": file.filename,
+            #     "url": f"/videos/other/{file.filename}",
+            #     "created_at": datetime.now(timezone.utc)
+            #     .isoformat(timespec="milliseconds")
+            #     .replace("+00:00", "Z"),
+            #     "is_bird": False,
+            # }
+            # save_video(video_data)
     except Exception as e:
         logger.exception("Detected {is_bird} but join directories failed: {str(e)}")
         raise HTTPException(
@@ -161,17 +206,7 @@ async def create_upload_file(file: UploadFile):
 # Website Apis
 @app.get("/api/videos")
 def list_videos():
-    # TODO: Update this to $UPLOAD_DIR once they are available
-    files = os.listdir("./videos/bird")
-    return [
-        {
-            "id": f,
-            "url": f"/videos/bird/{f}",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        for f in files
-        if f.endswith(".mp4")
-    ]
+    return load_videos()
 
 
 if __name__ == "__main__":
